@@ -1,26 +1,23 @@
-# base image
-FROM node:10-alpine
+FROM nginx:1.16
 
-# modules permissions and directories creation
-RUN mkdir -p /umla/app/client/node_modules && chown -R node:node /umla/app/client
+# Install only what is needed
+RUN apt-get update && apt-get install -y --no-install-recommends curl \  
+      && rm -rf /var/lib/apt/lists/*
 
-# Create app directory
-WORKDIR /umla/app/client
+# Remove default nginx
+RUN rm /usr/share/nginx/html/*
 
-# copy package.json into the container at /client
-COPY package*.json ./
+# Copy all of our nginx configurations
+COPY ./nginx.conf /etc/nginx/nginx.conf  
+COPY ./default.conf /etc/nginx/conf.d/default.conf
 
-# specifying user
-USER node
+# Copy our optimized build into the web folder that we point to in default.conf
+COPY ./build/ /var/www/
 
-# install dependencies
-RUN npm install
+# Convenicne just in case we want to add more configuration later
+COPY entrypoint.sh /  
+RUN chmod +x /entrypoint.sh  
+ENTRYPOINT ["/entrypoint.sh"]
 
-# Copy the current directory contents into the container at /client
-COPY --chown=node:node . .
-
-# Make port 3000 available to the world outside this container
-EXPOSE 3000
-
-# Run the app when the container launches
-CMD ["npm", "start"]
+# Daemon Off otherwise, Docker will drop when the main process is done making child ones
+CMD ["nginx", "-g", "daemon off;"]  
